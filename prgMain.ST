@@ -1,5 +1,5 @@
 VAR_GLOBAL
-  a0 at %X100.5:bool; // spínač: vertikální                                                     X100.4
+  a0 a t %X100.5:bool; // spínač: vertikální                                                     X100.4
   a1 at %X100.4:bool; // spínač: otáčení                                                        X100.5
   //a2 at %X10.2:bool; // spínač: kleště                                                        X10.2
   a3 at %X100.6:bool; // spínač: horizontální                                                   X10.3
@@ -13,9 +13,13 @@ VAR_GLOBAL
   w1 at %XL14:udint; // inc: rotace         //max cca 4300                                      XL14
   w2 at %XL116:udint; // inc: horizontální  //max cca 4300
   
-  m0:udint:=4000;
-  m1:udint:=4300;
-  m2:udint:=4300;
+  m0:udint:=4000;	// maximum: vertikální
+  m1:udint:=4300;	// maximum: rotace
+  m2:udint:=4300; // maximum: horizontální
+
+  p0:udint:=(m0-1);	// pos: vertikální
+  p1:udint:=(m1-1)/2;	// pos: rotace
+  p2:udint:=(m2-1); // pos: horizontální
 
   t0 at %X101.0:bool; // test: 0
   t1 at %X101.1:bool; // test: 1
@@ -35,10 +39,11 @@ VAR_GLOBAL
   stav:uint:=0; //stav řízení
   //rth : R_TRIG; //R_TRIG pro horizontální čítač
   delay:TON;
+	rs:udint:=0;
 END_VAR
 
 
-FUNCTION init:bool
+FUNCTION init:bool			//funkce zařizující initializaci
 IF not a0 THEN; //vertikální
     b4:=1;
   ELSE
@@ -70,7 +75,7 @@ IF not a0 THEN; //vertikální
 END_FUNCTION
 
 
-FUNCTION blokit : bool;
+FUNCTION blokit : bool; //funkce zařizující SW blokace
   IF a0 THEN; // nulování vert
     s0:=2;
   END_IF;
@@ -108,7 +113,7 @@ FUNCTION blokit : bool;
 END_FUNCTION
 
 
-FUNCTION na_p_r : bool
+FUNCTION na_p_r : bool //funkce zařizující rotační pohyb
   VAR_INPUT
     p:udint;
   END_VAR
@@ -128,7 +133,7 @@ FUNCTION na_p_r : bool
 END_FUNCTION
 
 
-FUNCTION na_p_v : bool
+FUNCTION na_p_v : bool //funkce zařizující pohyb po ose Y
   VAR_INPUT
     p : udint;
   END_VAR
@@ -150,7 +155,7 @@ FUNCTION na_p_v : bool
 END_FUNCTION
 
 
-FUNCTION na_p_h : bool
+FUNCTION na_p_h : bool //funkce zařizující pohyb po ose X
   VAR_INPUT
     p : udint;
   END_VAR
@@ -170,9 +175,9 @@ FUNCTION na_p_h : bool
 END_FUNCTION
 
 
-FUNCTION moveto : bool
+FUNCTION moveto : bool	//funkce zařizující pohyb
   VAR_INPUT
-    r, v : udint; //rotace, vertikální
+    v, r : udint; //rotace, vertikální
     h : udint; //horizontální
     rs, as : uint; //stav reakce, aktivovat stav
     t : time; //zpoždění
@@ -190,7 +195,7 @@ FUNCTION moveto : bool
 END_FUNCTION
 
 
-FUNCTION manual : bool
+FUNCTION manual : bool //funkce pro manuální ovládání
   b4:=t0 and t3;
   b5:=t0 and not t3; //rameno ven
   b3:=t1 and t3;
@@ -220,28 +225,35 @@ PROGRAM prgMain
   //pokud nebyla provedena initializace, tak ji proveď
   IF not inited THEN;
     inited:=init();
-    s0:=2;
+
+		//resetuj čítače
+    s0:=2;	
     s1:=2;
     s2:=2;
   ELSE
+
+		//spust čítání na čítačích
     s0:=1;
     s1:=1;
     s2:=1;
+
+
     //pocitejHoriz();
     //manual(); //manuální pohyb, pouze pro debug, využívá hodnoty "a#"
 
-    moveto(m0/3, 0,    0,    0,  1,  T#0s);
-    moveto(m0/3, m1/2, 0,    1,  2,  T#0s);
-    moveto(m0/3, m1/2, m2/2, 2,  3,  T#1s);
-    moveto(m0/3, 0,    0,    3,  4,  T#0s);
-    moveto(m0/2, 0,    0,    4,  5,  T#0s);
-    moveto(m0/2, m1/2, 0,    5,  6,  T#0s);
-    moveto(m0/2, m1/2, m2/2, 6,  7,  T#1s);
-    moveto(m0/2, 0,    0,    7,  8,  T#0s);
-    moveto(m0/1, 0,    0,    8,  9,  T#0s);
-    moveto(m0/1, m1/2, 0,    9,  10, T#0s);
-    moveto(m0/1, m1/2, m2/2, 10, 11, T#1s);
-    moveto(m0/1, 0,    0,    11, 0,  T#0s);
+		//moveto(rotace,osaY,osaX,)								////		PŘEDĚLAT
+		//moveto(vert,	rot,		hor,	sr,	sa,	time);
+    moveto	(0*p0,	rs*p1,	1*p2,	0,	1,	T#0s);	//vyjeď dopředu
+    moveto	(1*p0,	rs*p1,	1*p2,	1,	2,	T#0s);	//vyjeď dolu
+    moveto	(1*p0,	rs*p1,	1*p2,	2,	3,	T#1s);	//nasaj //přidat
+    moveto	(0*p0,	rs*p1,	1*p2,	3,	4,	T#0s);	//vyjeď nahoru
+    moveto	(0*p0,	rs*p1,	0*p2,	4,	5,	T#0s);	//zasuň se
+		if rs<=1 then; //nastav pozici pro rotaci
+			rs:=rs+1;
+			else
+				rs:=0;
+		end_if;
+    moveto	(0*p0,	rs*p1,	0*p2,	5,	6,	T#0s);	//rotuj 
 
     (*
     if stav = 0 then;
